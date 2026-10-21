@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pingtunnel</title>
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div class="app" id="app" data-state="idle">
+      <header class="titlebar">
+        <svg class="mark" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path
+            d="M1.5 10h3l2-5.5 3 11 2.5-8 2 4.5 1.5-2h3"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span class="brand__name">pingtunnel</span>
+        <span class="brand__sub">工作台</span>
+        <span class="titlebar__spacer"></span>
+        <div class="titlebar__tools">
+          <button class="icon-btn" id="theme-btn" type="button" title="切换外观（跟随系统 / 浅色 / 深色）">
+            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" id="theme-icon">
+              <circle cx="8" cy="8" r="3.1" stroke="currentColor" stroke-width="1.3" />
+              <path
+                d="M8 1.2v1.4M8 13.4v1.4M14.8 8h-1.4M2.6 8H1.2M12.8 3.2l-1 1M4.2 11.8l-1 1M12.8 12.8l-1-1M4.2 4.2l-1-1"
+                stroke="currentColor"
+                stroke-width="1.3"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="pane" id="main-pane">
+          <section class="card hero" aria-label="连接状态">
+            <div class="hero__head">
+              <span class="pill" id="state-pill">
+                <i class="pill__dot"></i>
+                <span id="state-text">未连接</span>
+              </span>
+              <span class="hero__meta" id="hero-meta">没有正在运行的隧道</span>
+            </div>
+
+            <div class="hero__body">
+              <div class="rtt">
+                <div class="rtt__value">
+                  <span class="rtt__num" id="rtt-value">—</span>
+                  <span class="rtt__unit">ms</span>
+                </div>
+                <div class="rtt__label" id="rtt-label">往返延迟</div>
+              </div>
+
+              <div class="spark" id="spark">
+                <svg viewBox="0 0 320 62" preserveAspectRatio="none" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="var(--live)" stop-opacity="0.26" />
+                      <stop offset="100%" stop-color="var(--live)" stop-opacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <line class="spark__grid" x1="0" y1="0.5" x2="320" y2="0.5" />
+                  <line class="spark__grid" x1="0" y1="31" x2="320" y2="31" opacity="0.6" />
+                  <path class="spark__area" id="spark-area" d="" />
+                  <path class="spark__line" id="spark-line" d="" />
+                </svg>
+                <div class="spark__empty" id="spark-empty">开始后这里显示延迟曲线</div>
+              </div>
+            </div>
+
+            <dl class="metrics">
+              <div>
+                <dt>上行</dt>
+                <dd><span id="m-up">0</span><span>KB/s</span></dd>
+              </div>
+              <div>
+                <dt>下行</dt>
+                <dd><span id="m-down">0</span><span>KB/s</span></dd>
+              </div>
+              <div>
+                <dt>连接</dt>
+                <dd id="m-conn">0</dd>
+              </div>
+              <div>
+                <dt>时长</dt>
+                <dd id="m-uptime">00:00</dd>
+              </div>
+            </dl>
+          </section>
+
+          <div class="banner" id="banner" hidden>
+            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="8" cy="8" r="6.4" stroke="currentColor" stroke-width="1.3" />
+              <path d="M8 4.8v3.9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+              <circle cx="8" cy="11.1" r="0.8" fill="currentColor" />
+            </svg>
+            <span id="banner-text"></span>
+            <button class="banner__close" id="banner-close" type="button" aria-label="关闭提示">✕</button>
+          </div>
+
+          <form class="card form" id="form" autocomplete="off" novalidate>
+            <section class="group" data-open="true">
+              <button class="group__head" type="button" aria-expanded="true">
+                <span class="group__title">连接</span>
+                <span class="group__hint">服务器、本地端口与转发目标</span>
+                <svg class="group__chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M4 6.2 8 10l4-3.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+              <div class="group__body">
+                <label class="field">
+                  <span class="field__label">服务器<span class="field__flag">-s</span></span>
+                  <span class="field__control">
+                    <input class="input" id="server" name="server" placeholder="1.2.3.4 或 your.domain" spellcheck="false" />
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">本地端口<span class="field__flag">-l</span></span>
+                  <span class="field__control">
+                    <input class="input" id="listenPort" name="listenPort" inputmode="numeric" placeholder="4455" spellcheck="false" />
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">转发目标<span class="field__flag">-t</span></span>
+                  <span class="field__control">
+                    <input class="input" id="target" name="target" placeholder="127.0.0.1:8080" spellcheck="false" />
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">超时<span class="field__flag">-timeout</span></span>
+                  <span class="field__control">
+                    <input class="input" id="timeout" name="timeout" inputmode="numeric" placeholder="60" spellcheck="false" />
+                    <span class="suffix">秒</span>
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">密钥<span class="field__flag">-key</span></span>
+                  <span class="field__control">
+                    <input class="input" id="key" name="key" inputmode="numeric" placeholder="0" spellcheck="false" />
+                  </span>
+                </label>
+              </div>
+            </section>
+
+            <section class="group" data-open="true">
+              <button class="group__head" type="button" aria-expanded="true">
+                <span class="group__title">代理</span>
+                <span class="group__hint">socks5、连接上限与拥塞控制</span>
+                <svg class="group__chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M4 6.2 8 10l4-3.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+              <div class="group__body">
+                <div class="field">
+                  <span class="field__label">socks5<span class="field__flag">-sock5</span></span>
+                  <span class="field__control">
+                    <label class="switch">
+                      <input type="checkbox" id="socks5" name="socks5" />
+                      <span class="switch__track"></span>
+                      <span class="switch__text" id="socks5-text">关闭时按端口转发</span>
+                    </label>
+                  </span>
+                </div>
+                <label class="field" id="s5-user-field">
+                  <span class="field__label">代理用户<span class="field__flag">-s5user</span></span>
+                  <span class="field__control">
+                    <input class="input" id="socks5User" name="socks5User" placeholder="可留空" spellcheck="false" />
+                  </span>
+                </label>
+                <label class="field" id="s5-pass-field">
+                  <span class="field__label">代理密码<span class="field__flag">-s5pass</span></span>
+                  <span class="field__control">
+                    <input class="input" id="socks5Pass" name="socks5Pass" type="password" placeholder="可留空" spellcheck="false" />
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">国家过滤<span class="field__flag">-s5filter</span></span>
+                  <span class="field__control">
+                    <input class="input" id="s5filter" name="s5filter" placeholder="例：CN（留空不过滤）" spellcheck="false" />
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">GeoIP 文件<span class="field__flag">-s5ftfile</span></span>
+                  <span class="field__control">
+                    <input class="input" id="s5ftfile" name="s5ftfile" placeholder="GeoLite2-Country.mmdb" spellcheck="false" />
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">HTTP 端口<span class="field__flag">本地</span></span>
+                  <span class="field__control">
+                    <input class="input" id="httpProxyPort" name="httpProxyPort" inputmode="numeric" placeholder="34457" spellcheck="false" />
+                    <span class="suffix">127.0.0.1 · SOCKS→HTTP</span>
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">TUN MTU<span class="field__flag">icmp</span></span>
+                  <span class="field__control">
+                    <input class="input" id="tunMtu" name="tunMtu" inputmode="numeric" placeholder="1400" spellcheck="false" />
+                    <span class="suffix">ICMP 隧道建议 1400</span>
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">最大连接<span class="field__flag">-maxconn</span></span>
+                  <span class="field__control">
+                    <input class="input" id="maxConn" name="maxConn" inputmode="numeric" placeholder="1000" spellcheck="false" />
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">拥塞控制<span class="field__flag">-congestion</span></span>
+                  <span class="field__control">
+                    <select class="input" id="congestion" name="congestion">
+                      <option value="bb">bb — 自适应带宽</option>
+                      <option value="off">off — 关闭</option>
+                    </select>
+                  </span>
+                </label>
+              </div>
+            </section>
+
+            <section class="group" data-open="false" id="group-tcp">
+              <button class="group__head" type="button" aria-expanded="false">
+                <span class="group__title">TCP 模式</span>
+                <span class="group__hint">用 TCP 伪装 ICMP 数据，调优重传与窗口</span>
+                <svg class="group__chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M4 6.2 8 10l4-3.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+              <div class="group__body">
+                <div class="field">
+                  <span class="field__label">启用<span class="field__flag">-tcp</span></span>
+                  <span class="field__control">
+                    <label class="switch">
+                      <input type="checkbox" id="tcpMode" name="tcpMode" />
+                      <span class="switch__track"></span>
+                      <span class="switch__text" id="tcp-text">TCP 模式</span>
+                    </label>
+                  </span>
+                </div>
+                <label class="field">
+                  <span class="field__label">缓冲区<span class="field__flag">-tcp_bs</span></span>
+                  <span class="field__control">
+                    <input class="input" id="tcpBuffer" name="tcpBuffer" inputmode="numeric" placeholder="1048576" spellcheck="false" />
+                    <span class="suffix">字节</span>
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">最大窗口<span class="field__flag">-tcp_mw</span></span>
+                  <span class="field__control">
+                    <input class="input" id="tcpMaxWin" name="tcpMaxWin" inputmode="numeric" placeholder="10000" spellcheck="false" />
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">重传间隔<span class="field__flag">-tcp_rst</span></span>
+                  <span class="field__control">
+                    <input class="input" id="tcpResend" name="tcpResend" inputmode="numeric" placeholder="400" spellcheck="false" />
+                    <span class="suffix">毫秒</span>
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">压缩等级<span class="field__flag">-tcp_gz</span></span>
+                  <span class="field__control">
+                    <input class="input" id="tcpCompress" name="tcpCompress" inputmode="numeric" placeholder="0" spellcheck="false" />
+                    <span class="suffix">0-9</span>
+                  </span>
+                </label>
+                <div class="field">
+                  <span class="field__label">统计<span class="field__flag">-tcp_stat</span></span>
+                  <span class="field__control">
+                    <label class="switch">
+                      <input type="checkbox" id="tcpStat" name="tcpStat" />
+                      <span class="switch__track"></span>
+                      <span class="switch__text">输出每个连接的统计</span>
+                    </label>
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            <section class="group" data-open="false" id="group-advanced">
+              <button class="group__head" type="button" aria-expanded="false">
+                <span class="group__title">日志与高级</span>
+                <span class="group__hint">日志级别、ICMP 绑定与加密</span>
+                <svg class="group__chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M4 6.2 8 10l4-3.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+              <div class="group__body">
+                <div class="field">
+                  <span class="field__label">客户端<span class="field__flag">exe</span></span>
+                  <span class="field__control">
+                    <input class="input" id="binaryPath" name="binaryPath" placeholder="自动查找 pingtunnel.exe" spellcheck="false" readonly />
+                    <button class="btn btn--ghost btn--sm" id="binary-btn" type="button">选择…</button>
+                  </span>
+                </div>
+                <div class="field">
+                  <span class="field__label">关闭日志<span class="field__flag">-nolog</span></span>
+                  <span class="field__control">
+                    <label class="switch">
+                      <input type="checkbox" id="noLog" name="noLog" />
+                      <span class="switch__track"></span>
+                      <span class="switch__text">不记录本次会话日志</span>
+                    </label>
+                  </span>
+                </div>
+                <label class="field">
+                  <span class="field__label">日志级别<span class="field__flag">-loglevel</span></span>
+                  <span class="field__control">
+                    <select class="input" id="logLevel" name="logLevel">
+                      <option value="debug">debug</option>
+                      <option value="info">info</option>
+                      <option value="warn">warn</option>
+                      <option value="error">error</option>
+                    </select>
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">ICMP 绑定<span class="field__flag">-icmp_l</span></span>
+                  <span class="field__control">
+                    <input class="input" id="icmpAddr" name="icmpAddr" placeholder="0.0.0.0（默认）" spellcheck="false" />
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">加密<span class="field__flag">-encrypt</span></span>
+                  <span class="field__control">
+                    <select class="input" id="encrypt" name="encrypt">
+                      <option value="">不加密</option>
+                      <option value="aes128">aes128</option>
+                      <option value="aes256">aes256</option>
+                      <option value="chacha20">chacha20</option>
+                    </select>
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field__label">加密口令<span class="field__flag">-encrypt-key</span></span>
+                  <span class="field__control">
+                    <input class="input" id="encryptKey" name="encryptKey" type="password" placeholder="服务端需一致" spellcheck="false" />
+                  </span>
+                </label>
+              </div>
+            </section>
+          </form>
+
+          <section class="card diagnose" id="diagnose" hidden aria-live="polite">
+            <div class="diagnose__head">
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M8 2.4 14.6 13.4H1.4L8 2.4Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+                <path d="M8 6.4v3.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+                <circle cx="8" cy="11.5" r="0.8" fill="currentColor" />
+              </svg>
+              <span>服务器还没有回包</span>
+              <em>排查</em>
+              <button class="diagnose__close" id="diag-close" type="button" aria-label="收起排查" title="收起">✕</button>
+            </div>
+            <p id="diag-copy">已经等了 <b id="diag-secs">0</b> 秒，一个 pong 都没收到。按顺序检查：</p>
+            <ol class="diagnose__steps">
+              <li>服务器上的 <code>pingtunnel -type server</code> 是否还在运行</li>
+              <li>两端的 <code>-key</code> 是否一致（当前 <b id="diag-key">0</b>）</li>
+              <li>本机是否以管理员身份运行（ICMP 原始套接字）</li>
+            </ol>
+            <p class="diagnose__foot">「测试服务器」只验证主机回 ping；能通却不回 pong，说明问题在服务端。</p>
+          </section>
+
+          <section class="card summary" id="summary" hidden aria-label="运行中的配置">
+            <div class="summary__head">
+              <span class="summary__title">运行中的配置</span>
+              <span class="summary__note">停止后可修改</span>
+            </div>
+            <dl class="summary__list" id="summary-list"></dl>
+            <div class="summary__tags" id="summary-tags"></div>
+          </section>
+        </div>
+
+        <aside class="pane pane--aside">
+          <section class="card outbound" aria-label="出口">
+            <header class="outbound__head">
+              <span class="outbound__title">出口</span>
+              <span class="outbound__note" id="outbound-note">未运行</span>
+            </header>
+
+            <div class="outbound__row">
+              <div class="outbound__text">
+                <span class="outbound__label">系统代理</span>
+                <span class="outbound__addr" id="sysproxy-addr">HTTP · 只在运行后可用</span>
+              </div>
+              <label class="switch outbound__switch">
+                <input type="checkbox" id="systemProxy" name="systemProxy" />
+                <span class="switch__track"></span>
+              </label>
+            </div>
+
+            <div class="outbound__row">
+              <div class="outbound__text">
+                <span class="outbound__label">TUN 全局</span>
+                <span class="outbound__addr" id="tun-addr">wintun · 接管全部流量</span>
+              </div>
+              <label class="switch outbound__switch">
+                <input type="checkbox" id="tun" name="tun" />
+                <span class="switch__track"></span>
+              </label>
+            </div>
+
+            <p class="outbound__hint" id="outbound-hint">启动隧道后可用；打开前会先验证隧道能否承载数据</p>
+          </section>
+
+          <section class="card log">
+            <header class="log__head">
+              <span class="log__title">会话日志</span>
+              <span class="log__count" id="log-count">0</span>
+              <button class="log__clear" id="log-clear" type="button">清空</button>
+            </header>
+            <div class="log__body" id="log-body">
+              <div class="log__empty" id="log-empty">
+                启动隧道后，客户端日志会出现在这里。<br />
+                按 <code>-loglevel</code> 过滤，最多保留 3000 行。
+              </div>
+              <div id="log-list"></div>
+            </div>
+          </section>
+        </aside>
+      </main>
+
+      <footer class="footer">
+        <div class="footer__hint" id="hint">填写服务器与转发目标后启动</div>
+        <div class="actions">
+          <button class="btn btn--ghost" id="probe-btn" type="button">
+            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M2 8h2.2l1.4-4 2.2 8 1.6-5.6 1.2 3 0.9-1.4H14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <span id="probe-label">测试服务器</span>
+          </button>
+          <button class="btn btn--primary" id="start-btn" type="button">启动隧道</button>
+          <button class="btn btn--quiet" id="quit-btn" type="button">退出</button>
+        </div>
+      </footer>
+
+      <div class="toasts" id="toasts" aria-live="polite"></div>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

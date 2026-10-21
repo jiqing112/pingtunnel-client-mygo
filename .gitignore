@@ -1,0 +1,6 @@
+.toolchain/
+.zwork/
+.shots/
+diag/
+dist/
+*.log

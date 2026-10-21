@@ -1,0 +1,10 @@
+node_modules/
+/dist/
+/build/
+/.mygo/
+/.tmp/
+mygo_windows_*.syso
+
+# Downloaded by scripts/fetch-client.ps1, not kept in git
+/bin/pingtunnel.exe
+/bin/client-version.txt

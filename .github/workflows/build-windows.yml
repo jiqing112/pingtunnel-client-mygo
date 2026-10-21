@@ -1,0 +1,111 @@
+name: build-windows
+
+# Pushing a v* tag publishes a Release with the zip attached; every other push
+# and manual run only leaves the zip as a workflow artifact.
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      client_tag:
+        description: "pingtunnel 客户端版本（留空=最新）"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.x"
+          cache-dependency-path: pingtunnel-workbench/go.sum
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install frontend dependencies
+        working-directory: pingtunnel-workbench
+        run: |
+          if (Test-Path bun.lock) {
+            bun install --frozen-lockfile
+          } else {
+            bun install
+          }
+
+      - name: Build the app
+        working-directory: pingtunnel-workbench
+        run: bun run build
+
+      - name: Fetch the pingtunnel client next to the app
+        run: |
+          ./scripts/fetch-client.ps1 -Tag "${{ inputs.client_tag }}" -OutDir "pingtunnel-workbench/build/windows-amd64"
+
+      - name: Add the runtime bits mygo does not know about
+        run: |
+          $out = "pingtunnel-workbench/build/windows-amd64"
+          Copy-Item "pingtunnel-workbench/bin/wintun.dll" $out -Force
+          Copy-Item "pingtunnel-workbench/bin/wintun-LICENSE.txt" $out -Force
+
+          $client = "unknown"
+          if (Test-Path "$out/client-version.txt") {
+            $client = (Get-Content "$out/client-version.txt" -Raw).Trim()
+          }
+
+          $lines = @(
+            "pingtunnel 工作台（Windows amd64）",
+            "",
+            "1. 解压后三个文件必须在同一目录：pingtunnel-workbench.exe、pingtunnel.exe、wintun.dll",
+            "2. 右键 pingtunnel-workbench.exe -> 以管理员身份运行（ICMP 隧道需要管理员权限）",
+            "3. 本次打包使用的客户端版本：$client",
+            "   客户端要与服务端同源；如果服务端是旧版或分叉版，直接用你自己的 pingtunnel.exe 覆盖即可",
+            "4. TUN 全局模式需要管理员权限与 wintun.dll；默认关闭，隧道未验证数据通路时不允许开启",
+            "5. 完整说明见仓库 README.md",
+            "",
+            "客户端来源：https://github.com/esrrhs/pingtunnel/releases/tag/$client"
+          )
+          $lines -join "`r`n" | Set-Content -Path "$out/使用说明.txt" -Encoding utf8
+
+      - name: Package the zip
+        id: package
+        run: |
+          $out = "pingtunnel-workbench/build/windows-amd64"
+          $ref = "${{ github.ref_name }}"
+          if (-not $ref) { $ref = "manual" }
+          $safe = ($ref -replace '[^0-9A-Za-z._-]', '-')
+          $name = "pingtunnel-workbench-$safe-windows-amd64"
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path "$out/*" -DestinationPath "dist/$name.zip" -Force
+          "name=$name" >> $env:GITHUB_OUTPUT
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: dist/${{ steps.package.outputs.name }}.zip
+          if-no-files-found: error
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/${{ steps.package.outputs.name }}.zip
+          generate_release_notes: true
+          body: |
+            下载 zip，解压后以管理员身份运行 `pingtunnel-workbench.exe`。
+
+            压缩包里已经带了：
+            - `pingtunnel.exe`：自动从 https://github.com/esrrhs/pingtunnel/releases 对应版本下载
+            - `wintun.dll`：TUN 全局模式所需的虚拟网卡驱动
+            - `client-version.txt`：本次打包实际使用的客户端版本
